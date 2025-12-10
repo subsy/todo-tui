@@ -45,6 +45,13 @@ Run without building:
 bun run dev
 ```
 
+### Try the Example
+
+An example Enterprise-themed todo list is included to showcase all features:
+```bash
+./todo -f example-enterprise.txt i
+```
+
 ## Usage
 
 ### Command Line Interface
