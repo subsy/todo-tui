@@ -463,7 +463,9 @@ function render(state: TUIState): void {
   }
 
   // Title with active filter
-  let title = ` Todo.txt (${state.filteredTasks.length} tasks) `;
+  let titleText = ` Todo.txt (${state.filteredTasks.length} tasks) `;
+  let filterText = '';
+
   if (state.activeFilter) {
     const filterType = state.activeFilter.type;
     let filterValue = state.activeFilter.value;
@@ -478,10 +480,18 @@ function render(state: TUIState): void {
     }
 
     const filterPrefix = filterType === 'project' ? '+' : filterType === 'context' ? '@' : '';
-    title += colors.priority.high(`[Filter: ${filterPrefix}${filterValue}] `);
+    filterText = `[Filter: ${filterPrefix}${filterValue}] `;
   }
-  const titlePadding = Math.max(0, width - getVisibleLength(title) - 4);
-  stdout.write(colors.border('┌─') + colors.highlight.bold(title) + colors.border('─'.repeat(titlePadding) + '┐\n'));
+
+  const totalTitleLength = titleText.length + filterText.length;
+  // ┌─ (2 chars) + title + padding + ┐ (1 char) = width
+  // So: padding = width - titleLength - 3
+  const titlePadding = Math.max(0, width - totalTitleLength - 3);
+
+  const renderedTitle = colors.highlight.bold(titleText) +
+    (filterText ? colors.priority.high(filterText) : '');
+
+  stdout.write(colors.border('┌─') + renderedTitle + colors.border('─'.repeat(titlePadding) + '┐\n'));
 
   // Tasks
   // Reserve lines for panel (inside border) and legend (outside border)
@@ -651,7 +661,11 @@ function renderTask(task: Task, selectedElement: number, state: TUIState): strin
 }
 
 function getVisibleLength(str: string): number {
-  return str.replace(/\x1b\[[0-9;]*m/g, '').length;
+  // Remove all ANSI escape sequences using comprehensive regex
+  // This regex matches: ESC [ <optional numbers/semicolons> <letter>
+  // Covers color codes, cursor movement, etc.
+  const ansiRegex = /\x1b\[[0-9;]*[a-zA-Z]/g;
+  return str.replace(ansiRegex, '').length;
 }
 
 function getPriorityColor(priority: string): (text: string) => string {
