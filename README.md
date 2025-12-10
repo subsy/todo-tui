@@ -1,6 +1,6 @@
-# Todo CLI
+# Todo TUI
 
-A fast and beautiful CLI application for managing todo.txt files, built with TypeScript and Bun.
+A fast and beautiful TUI and CLI application for managing todo.txt files, built with TypeScript and Bun.
 
 ## Features
 
