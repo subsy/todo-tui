@@ -50,9 +50,9 @@ bun run dev
 
 ### Try the Example
 
-An example Enterprise-themed todo list is included to showcase all features:
+An example Enterprise-themed todo list is included in the repository to showcase all features:
 ```bash
-./todo -f example-enterprise.txt i
+./todo -f todo.txt i
 ```
 
 ## Usage
