@@ -2,7 +2,7 @@
 (B) 2025-12-09 Review crew performance evaluations @office +management due:2025-12-15
 x 2025-12-10 (A) 2025-12-08 Authorize emergency repairs to warp drive @engineering +maintenance
 (C) 2025-12-09 Schedule diplomatic meeting with Vulcan ambassador @readyroom +diplomacy due:2025-12-13
-2025-12-10 Update ships logs and mission reports @bridge +administration
+(A) 2025-12-10 Update ships logs and mission reports @bridge +administration
 (A) 2025-12-08 Respond to distress signal from colony ship @bridge +mission priority:urgent due:2025-12-10
 (D) 2025-12-09 Conduct routine phaser maintenance drill @holodeck +training due:2025-12-20
 x 2025-12-09 (B) 2025-12-08 Submit quarterly fleet status report to Starfleet @office +administration

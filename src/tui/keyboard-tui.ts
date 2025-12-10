@@ -5,6 +5,8 @@ import { stdin, stdout } from 'process';
 import * as readline from 'readline';
 import { loadConfig, saveConfig, type Config, letterToNumber, numberToLetter, normalizePriority } from '../config.ts';
 
+type FocusedPanel = 'tasks' | 'priorities' | 'stats' | 'contexts' | 'projects';
+
 interface TUIState {
   tasks: Task[];
   filteredTasks: Task[];
@@ -23,6 +25,9 @@ interface TUIState {
   commandBarCursor?: number;
   config: Config;
   highlightOverdue: boolean;
+  focusedPanel: FocusedPanel;
+  panelCursorIndex: number;
+  activeFilter?: { type: 'priority' | 'project' | 'context' | 'dueOverdue' | 'doneToday' | 'active', value: string };
 }
 
 // Pastel color palette
@@ -98,6 +103,9 @@ export async function keyboardTUI(filePath?: string): Promise<void> {
     sortMode: 'priority',
     config,
     highlightOverdue: false,
+    focusedPanel: 'tasks',
+    panelCursorIndex: 0,
+    activeFilter: undefined,
   };
 
   updateFilteredTasks(state);
@@ -136,36 +144,87 @@ export async function keyboardTUI(filePath?: string): Promise<void> {
 
     // Handle keys
     if (key.name === 'q' || key.name === 'escape') {
-      await cleanup();
-      process.exit(0);
+      // If not in tasks panel, go back to tasks panel
+      if (state.focusedPanel !== 'tasks') {
+        state.focusedPanel = 'tasks';
+        state.panelCursorIndex = 0;
+      } else if (state.activeFilter) {
+        // If in tasks panel with active filter, clear the filter
+        state.activeFilter = undefined;
+        updateFilteredTasks(state);
+        state.currentTaskIndex = 0;
+      } else {
+        // Otherwise quit
+        await cleanup();
+        process.exit(0);
+      }
+    } else if (key.name === 'tab') {
+      // Cycle through panels
+      const panels: FocusedPanel[] = ['tasks', 'priorities', 'stats', 'projects', 'contexts'];
+      const currentIndex = panels.indexOf(state.focusedPanel);
+      const nextIndex = (currentIndex + 1) % panels.length;
+      state.focusedPanel = panels[nextIndex];
+      state.panelCursorIndex = 0;
     } else if (key.name === 'up' || str === 'k') {
-      if (state.currentTaskIndex > 0) {
-        state.currentTaskIndex--;
-        state.currentElementIndex = 0;
+      if (state.focusedPanel === 'tasks') {
+        if (state.currentTaskIndex > 0) {
+          state.currentTaskIndex--;
+          state.currentElementIndex = 0;
+        }
+      } else {
+        // Navigate within other panels
+        if (state.panelCursorIndex > 0) {
+          state.panelCursorIndex--;
+        }
       }
     } else if (key.name === 'down' || str === 'j') {
-      if (state.currentTaskIndex < state.filteredTasks.length - 1) {
-        state.currentTaskIndex++;
-        state.currentElementIndex = 0;
+      if (state.focusedPanel === 'tasks') {
+        if (state.currentTaskIndex < state.filteredTasks.length - 1) {
+          state.currentTaskIndex++;
+          state.currentElementIndex = 0;
+        }
+      } else {
+        // Navigate within other panels
+        const maxIndex = getPanelItemCount(state, state.focusedPanel);
+        if (state.panelCursorIndex < maxIndex - 1) {
+          state.panelCursorIndex++;
+        }
       }
     } else if (key.name === 'left' || str === 'h') {
-      if (state.currentElementIndex > 0) {
+      if (state.focusedPanel === 'tasks' && state.currentElementIndex > 0) {
         state.currentElementIndex--;
       }
     } else if (key.name === 'right' || str === 'l') {
-      const task = state.filteredTasks[state.currentTaskIndex];
-      if (task) {
-        const maxElements = getTaskElementCount(task);
-        if (state.currentElementIndex < maxElements - 1) {
-          state.currentElementIndex++;
+      if (state.focusedPanel === 'tasks') {
+        const task = state.filteredTasks[state.currentTaskIndex];
+        if (task) {
+          const maxElements = getTaskElementCount(task);
+          if (state.currentElementIndex < maxElements - 1) {
+            state.currentElementIndex++;
+          }
         }
       }
-    } else if (str === 'g') {
+    } else if (key.name === 'return' && state.focusedPanel !== 'tasks') {
+      // Apply filter based on focused panel and cursor position
+      applyPanelFilter(state);
+      updateFilteredTasks(state);
       state.currentTaskIndex = 0;
-      state.currentElementIndex = 0;
+      state.focusedPanel = 'tasks'; // Return to tasks panel after filtering
+    } else if (str === 'g') {
+      if (state.focusedPanel === 'tasks') {
+        state.currentTaskIndex = 0;
+        state.currentElementIndex = 0;
+      } else {
+        state.panelCursorIndex = 0;
+      }
     } else if (key.shift && str === 'G') {
-      state.currentTaskIndex = Math.max(0, state.filteredTasks.length - 1);
-      state.currentElementIndex = 0;
+      if (state.focusedPanel === 'tasks') {
+        state.currentTaskIndex = Math.max(0, state.filteredTasks.length - 1);
+        state.currentElementIndex = 0;
+      } else {
+        const maxIndex = getPanelItemCount(state, state.focusedPanel);
+        state.panelCursorIndex = Math.max(0, maxIndex - 1);
+      }
     } else if (key.name === 'space') {
       await toggleCompletion(state);
     } else if (key.name === 'return' || str === 'e') {
@@ -241,9 +300,99 @@ export async function keyboardTUI(filePath?: string): Promise<void> {
   stdin.on('keypress', mainKeypressHandler);
 }
 
+function getPanelItemCount(state: TUIState, panel: FocusedPanel): number {
+  if (panel === 'tasks') return state.filteredTasks.length;
+  if (panel === 'priorities') {
+    return state.config.priorityMode === 'letter' ? 26 : 10;
+  }
+  if (panel === 'stats') return 3; // DUE/OVERDUE, DONE TODAY, ACTIVE
+  if (panel === 'projects') {
+    const allProjects = new Set<string>();
+    for (const task of state.tasks) {
+      for (const project of task.projects) {
+        allProjects.add(project);
+      }
+    }
+    return allProjects.size;
+  }
+  if (panel === 'contexts') {
+    const allContexts = new Set<string>();
+    for (const task of state.tasks) {
+      for (const context of task.contexts) {
+        allContexts.add(context);
+      }
+    }
+    return allContexts.size;
+  }
+  return 0;
+}
+
+function applyPanelFilter(state: TUIState): void {
+  const index = state.panelCursorIndex;
+
+  if (state.focusedPanel === 'priorities') {
+    const priorities: string[] = [];
+    if (state.config.priorityMode === 'letter') {
+      for (let i = 0; i < 26; i++) {
+        priorities.push(String.fromCharCode('A'.charCodeAt(0) + i));
+      }
+    } else {
+      for (let i = 0; i <= 9; i++) {
+        priorities.push(i.toString());
+      }
+    }
+    if (index < priorities.length) {
+      state.activeFilter = { type: 'priority', value: priorities[index] };
+    }
+  } else if (state.focusedPanel === 'stats') {
+    if (index === 0) {
+      state.activeFilter = { type: 'dueOverdue', value: 'dueOverdue' };
+    } else if (index === 1) {
+      state.activeFilter = { type: 'doneToday', value: 'doneToday' };
+    } else if (index === 2) {
+      state.activeFilter = { type: 'active', value: 'active' };
+    }
+  } else if (state.focusedPanel === 'projects') {
+    const allProjects = new Set<string>();
+    for (const task of state.tasks) {
+      for (const project of task.projects) {
+        allProjects.add(project);
+      }
+    }
+    const projectsList = Array.from(allProjects).sort();
+    if (index < projectsList.length) {
+      state.activeFilter = { type: 'project', value: projectsList[index] };
+    }
+  } else if (state.focusedPanel === 'contexts') {
+    const allContexts = new Set<string>();
+    for (const task of state.tasks) {
+      for (const context of task.contexts) {
+        allContexts.add(context);
+      }
+    }
+    const contextsList = Array.from(allContexts).sort();
+    if (index < contextsList.length) {
+      state.activeFilter = { type: 'context', value: contextsList[index] };
+    }
+  }
+}
+
 function updateFilteredTasks(state: TUIState): void {
   state.filteredTasks = state.tasks.filter(task => {
-    if (!state.showCompleted && task.completed) return false;
+    // Apply active filter first (may override showCompleted setting)
+    if (state.activeFilter) {
+      const filter = state.activeFilter;
+      if (filter.type === 'priority' && task.priority !== filter.value) return false;
+      if (filter.type === 'project' && !task.projects.includes(filter.value)) return false;
+      if (filter.type === 'context' && !task.contexts.includes(filter.value)) return false;
+      if (filter.type === 'dueOverdue' && !isOverdue(task) && !isDueToday(task)) return false;
+      if (filter.type === 'doneToday' && !isCompletedToday(task)) return false;
+      if (filter.type === 'active' && task.completed) return false;
+    } else {
+      // Only apply showCompleted filter if no active filter is set
+      if (!state.showCompleted && task.completed) return false;
+    }
+
     if (state.searchFilter) {
       const search = state.searchFilter.toLowerCase();
       return task.text.toLowerCase().includes(search) ||
@@ -313,9 +462,25 @@ function render(state: TUIState): void {
     return;
   }
 
-  // Title
-  const title = ` Todo.txt (${state.filteredTasks.length} tasks) `;
-  const titlePadding = Math.max(0, width - title.length - 4);
+  // Title with active filter
+  let title = ` Todo.txt (${state.filteredTasks.length} tasks) `;
+  if (state.activeFilter) {
+    const filterType = state.activeFilter.type;
+    let filterValue = state.activeFilter.value;
+
+    // Format filter display based on type
+    if (filterValue === 'dueOverdue') {
+      filterValue = 'DUE/OVERDUE';
+    } else if (filterValue === 'doneToday') {
+      filterValue = 'DONE TODAY';
+    } else if (filterValue === 'active') {
+      filterValue = 'ACTIVE';
+    }
+
+    const filterPrefix = filterType === 'project' ? '+' : filterType === 'context' ? '@' : '';
+    title += colors.priority.high(`[Filter: ${filterPrefix}${filterValue}] `);
+  }
+  const titlePadding = Math.max(0, width - getVisibleLength(title) - 4);
   stdout.write(colors.border('┌─') + colors.highlight.bold(title) + colors.border('─'.repeat(titlePadding) + '┐\n'));
 
   // Tasks
@@ -376,20 +541,29 @@ function render(state: TUIState): void {
     // Normal status bar
     const shortcuts = [
       colors.muted('?') + ' Help',
+      colors.muted('TAB') + ' Panels',
       colors.muted('space') + ' Toggle Done',
       colors.muted('e') + ' Edit',
       colors.muted('n') + ' New',
       colors.muted('v') + (state.showCompleted ? ' Hide Completed' : ' Show All'),
-      colors.muted('o') + (state.highlightOverdue ? ' Hide Overdue HL' : ' Highlight Overdue'),
       colors.muted('q') + ' Quit'
     ];
     stdout.write(shortcuts.join(colors.border('  │  ')) + '\n');
 
-    if (!state.showCompleted) {
-      stdout.write(colors.muted(`Hiding completed | Sort: ${state.sortMode} (press 's' to cycle)`) + '\n');
-    } else {
-      stdout.write(colors.muted(`Sort: ${state.sortMode} (press 's' to cycle)`) + '\n');
-    }
+    // Second status line with panel indicator
+    const panelName = state.focusedPanel === 'tasks' ? 'Tasks' :
+                      state.focusedPanel === 'priorities' ? 'Priorities' :
+                      state.focusedPanel === 'stats' ? 'Stats' :
+                      state.focusedPanel === 'projects' ? 'Projects' : 'Contexts';
+    const panelIndicator = state.focusedPanel === 'tasks' ?
+      colors.muted(`Panel: ${panelName}`) :
+      colors.highlight(`Panel: ${panelName} (press Enter to filter, ESC to return)`);
+
+    const sortInfo = !state.showCompleted ?
+      colors.muted(`Hiding completed | Sort: ${state.sortMode}`) :
+      colors.muted(`Sort: ${state.sortMode}`);
+
+    stdout.write(panelIndicator + colors.border('  │  ') + sortInfo + '\n');
   }
 }
 
@@ -532,10 +706,10 @@ function renderPanelsInside(state: TUIState, width: number): void {
   const maxCount = Math.max(...counts, 1);
 
   // Prepare stats lines for right panel
-  const statsLines = [
-    `${colors.priority.high('DUE/OVERDUE:')} ${colors.priority.high.bold(dueOverdue.length.toString())}`,
-    `${colors.success('DONE TODAY:')} ${colors.success.bold(completedToday.length.toString())}`,
-    `${colors.muted('ACTIVE:')} ${colors.border(`${activeTasks.length}/${state.tasks.length}`)}`,
+  const statsLinesRaw = [
+    { label: 'DUE/OVERDUE:', value: dueOverdue.length.toString(), color: colors.priority.high },
+    { label: 'DONE TODAY:', value: completedToday.length.toString(), color: colors.success },
+    { label: 'ACTIVE:', value: `${activeTasks.length}/${state.tasks.length}`, color: colors.muted },
   ];
 
   // Collect all unique project and context tags
@@ -549,8 +723,8 @@ function renderPanelsInside(state: TUIState, width: number): void {
       allContexts.add(context);
     }
   }
-  const projectLines = Array.from(allProjects).sort().map(p => colors.project(`+${p}`));
-  const contextLines = Array.from(allContexts).sort().map(c => colors.context(`@${c}`));
+  const projectsList = Array.from(allProjects).sort();
+  const contextsList = Array.from(allContexts).sort();
 
   // Calculate bar chart width (bars + spaces between them)
   const barChartWidth = allPriorities.length * 2 - 1; // Each bar + space, minus last space
@@ -589,21 +763,27 @@ function renderPanelsInside(state: TUIState, width: number): void {
       const count = counts[i];
       const color = getPriorityColor(pri);
       const barLevel = barHeights[i];
+      const isSelected = state.focusedPanel === 'priorities' && state.panelCursorIndex === i;
 
       // Calculate which character to show for this row
       const rowBottomLevel = row * subBarLevels;
       const rowTopLevel = (row + 1) * subBarLevels;
 
+      let barChar = ' ';
       if (barLevel >= rowTopLevel) {
         // Full bar for this row
-        line += color('█');
+        barChar = '█';
       } else if (barLevel > rowBottomLevel) {
         // Partial bar - show the appropriate partial block
         const partialLevel = barLevel - rowBottomLevel;
-        line += color(partialBlocks[partialLevel]);
+        barChar = partialBlocks[partialLevel];
+      }
+
+      // Apply highlighting if selected
+      if (isSelected && barChar !== ' ') {
+        line += chalk.inverse(color(barChar));
       } else {
-        // Empty
-        line += ' ';
+        line += color(barChar);
       }
 
       // Add 1 space gap between bars (but not after last bar)
@@ -612,38 +792,69 @@ function renderPanelsInside(state: TUIState, width: number): void {
       }
     }
 
-    // Add vertical divider
-    line += ' ' + colors.border('│') + ' ';
+    // Add vertical divider (highlight if stats panel is focused)
+    const statsBorder = state.focusedPanel === 'stats' ? colors.highlight('│') : colors.border('│');
+    line += ' ' + statsBorder + ' ';
 
     // Add stats line if available for this row
     const statsRow = (barHeight - 1) - row;
-    if (statsRow < statsLines.length) {
-      line += statsLines[statsRow];
+    if (statsRow < statsLinesRaw.length) {
+      const stat = statsLinesRaw[statsRow];
+      const isStatSelected = state.focusedPanel === 'stats' && state.panelCursorIndex === statsRow;
+      const cursor = isStatSelected ? '> ' : '  ';
+      const statLine = `${cursor}${stat.color(stat.label)} ${stat.color.bold(stat.value)}`;
+
+      if (isStatSelected) {
+        line += chalk.inverse(statLine);
+      } else {
+        line += statLine;
+      }
     }
 
-    // Pad stats to fixed width (20 chars)
-    const statsWidth = 20;
-    const currentStatsLen = statsRow < statsLines.length ? getVisibleLength(statsLines[statsRow]) : 0;
+    // Pad stats to fixed width (22 chars including cursor)
+    const statsWidth = 22;
+    const currentStatsLen = statsRow < statsLinesRaw.length ?
+      getVisibleLength(`  ${statsLinesRaw[statsRow].label} ${statsLinesRaw[statsRow].value}`) : 0;
     line += ' '.repeat(Math.max(0, statsWidth - currentStatsLen));
 
-    // Add second vertical divider
-    line += ' ' + colors.border('│') + ' ';
+    // Add second vertical divider (highlight if projects panel is focused)
+    const projectsBorder = state.focusedPanel === 'projects' ? colors.highlight('│') : colors.border('│');
+    line += ' ' + projectsBorder + ' ';
 
     // Add projects
-    if (statsRow < projectLines.length) {
-      line += projectLines[statsRow];
+    if (statsRow < projectsList.length) {
+      const project = projectsList[statsRow];
+      const isProjectSelected = state.focusedPanel === 'projects' && state.panelCursorIndex === statsRow;
+      const cursor = isProjectSelected ? '> ' : '  ';
+      const projectLine = cursor + colors.project(`+${project}`);
+
+      if (isProjectSelected) {
+        line += chalk.inverse(projectLine);
+      } else {
+        line += projectLine;
+      }
     }
-    // Pad projects to fixed width (15 chars)
-    const projectWidth = 15;
-    const currentProjectLen = statsRow < projectLines.length ? getVisibleLength(projectLines[statsRow]) : 0;
+    // Pad projects to fixed width (17 chars including cursor)
+    const projectWidth = 17;
+    const currentProjectLen = statsRow < projectsList.length ? getVisibleLength(`  +${projectsList[statsRow]}`) : 0;
     line += ' '.repeat(Math.max(0, projectWidth - currentProjectLen));
 
-    // Add third vertical divider
-    line += ' ' + colors.border('│') + ' ';
+    // Add third vertical divider (highlight if contexts panel is focused)
+    const contextsBorder = state.focusedPanel === 'contexts' ? colors.highlight('│') : colors.border('│');
+    line += ' ' + contextsBorder + ' ';
 
     // Add contexts
-    if (statsRow < contextLines.length) {
-      line += contextLines[statsRow];
+    if (statsRow < contextsList.length) {
+      const context = contextsList[statsRow];
+      const isContextSelected = state.focusedPanel === 'contexts' && state.panelCursorIndex === statsRow;
+      const cursor = isContextSelected ? '> ' : '  ';
+      const contextLine = cursor + colors.context(`@${context}`);
+
+      if (isContextSelected) {
+        line += chalk.inverse(contextLine);
+      } else {
+        line += contextLine;
+      }
     }
 
     const lineVisible = getVisibleLength(line);
@@ -656,7 +867,13 @@ function renderPanelsInside(state: TUIState, width: number): void {
   for (let i = 0; i < allPriorities.length; i++) {
     const pri = allPriorities[i];
     const color = getPriorityColor(pri);
-    labelLine += color(pri);
+    const isSelected = state.focusedPanel === 'priorities' && state.panelCursorIndex === i;
+
+    if (isSelected) {
+      labelLine += chalk.inverse(color(pri));
+    } else {
+      labelLine += color(pri);
+    }
 
     // Add 1 space gap between labels (but not after last label)
     if (i < allPriorities.length - 1) {
@@ -665,15 +882,20 @@ function renderPanelsInside(state: TUIState, width: number): void {
   }
 
   // Add vertical dividers (extend them to the label row)
-  labelLine += ' ' + colors.border('│');
+  const statsBorder = state.focusedPanel === 'stats' ? colors.highlight('│') : colors.border('│');
+  labelLine += ' ' + statsBorder;
 
-  // Pad for stats width (space + statsWidth + space = 1 + 20 + 1 = 22)
-  labelLine += ' '.repeat(22);
-  labelLine += colors.border('│');
+  // Pad for stats width (space + statsWidth + space = 1 + 22 + 1 = 24)
+  labelLine += ' '.repeat(24);
 
-  // Pad for projects width (space + projectWidth + space = 1 + 15 + 1 = 17)
-  labelLine += ' '.repeat(17);
-  labelLine += colors.border('│');
+  const projectsBorder = state.focusedPanel === 'projects' ? colors.highlight('│') : colors.border('│');
+  labelLine += projectsBorder;
+
+  // Pad for projects width (space + projectWidth + space = 1 + 17 + 1 = 19)
+  labelLine += ' '.repeat(19);
+
+  const contextsBorder = state.focusedPanel === 'contexts' ? colors.highlight('│') : colors.border('│');
+  labelLine += contextsBorder;
 
   const labelVisible = getVisibleLength(labelLine);
   const labelPadding = Math.max(0, width - labelVisible - 1);
@@ -689,9 +911,14 @@ function renderHelp(state: TUIState): void {
 ${colors.highlight.bold('Keyboard Shortcuts')}
 
 ${colors.project.bold('Navigation:')}
-  ↑/k, ↓/j      Move up/down between tasks
-  ←/h, →/l      Move left/right between elements
+  ↑/k, ↓/j      Move up/down (tasks or within panels)
+  ←/h, →/l      Move left/right between task elements
+  TAB           Cycle through panels (tasks → priorities → stats → projects → contexts)
   g, G          Go to top/bottom
+
+${colors.project.bold('Panel Actions:')}
+  enter         (in non-task panels) Filter by selected item
+  ESC           Return to tasks panel
 
 ${colors.project.bold('Task Actions:')}
   space         Toggle task completion
