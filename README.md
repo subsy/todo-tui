@@ -8,6 +8,7 @@ A fast and beautiful TUI and CLI application for managing todo.txt files, built 
 - **Fast & Lightweight** - Built with Bun for maximum performance
 - **Beautiful Output** - Colorized task display with priority indicators
 - **Interactive TUI Mode** - Full-screen terminal interface for managing tasks
+- **Multi-Panel Navigation** - TAB between panels and filter by priority, stats, projects, or contexts
 - **Single Binary** - Compile to a standalone executable with no dependencies
 - **Configurable** - Custom todo.txt file location via flag or environment variable
 - **Filtering & Search** - Filter by context, project, priority, or search text
@@ -111,9 +112,14 @@ todo i                       # Alias
 #### Keyboard Shortcuts
 
 **Navigation:**
-- `↑`/`k`, `↓`/`j` - Move up/down between tasks
+- `↑`/`k`, `↓`/`j` - Move up/down (tasks or within panels)
 - `←`/`h`, `→`/`l` - Move left/right between task elements (priority, date, text, tags)
-- `g`, `G` - Go to top/bottom of list
+- `TAB` - Cycle through panels (tasks → priorities → stats → projects → contexts)
+- `g`, `G` - Go to top/bottom of list or panel
+
+**Panel Actions:**
+- `enter` - (in non-task panels) Filter by selected item
+- `ESC` - Return to tasks panel or clear active filter
 
 **Task Actions:**
 - `space` - Toggle task completion (done/not done)
@@ -140,6 +146,48 @@ todo i                       # Alias
 #### Element-Level Navigation
 
 The TUI allows you to navigate within each task element by element using `←`/`→` keys. Elements are highlighted when selected, and you can delete individual elements (except checkbox and main text) using the `delete` key. This makes it easy to remove a priority, delete a specific tag, or remove metadata without editing the entire task.
+
+#### Panel Navigation & Filtering
+
+The TUI features a multi-panel interface with powerful filtering capabilities. Press `TAB` to cycle through five panels:
+
+**Tasks Panel** - Main task list with checkboxes and full task details
+- Navigate with `↑`/`↓` or `k`/`j`
+- Select elements within tasks with `←`/`→` or `h`/`l`
+- Press `enter` or `e` to edit tasks
+
+**Priorities Panel** - Visual bar chart of task priorities
+- Navigate with `↑`/`↓` to select a priority (A-Z or 0-9)
+- Press `enter` to filter tasks by the selected priority
+- Bar chart uses sub-character granularity for precise visualization
+- Focused panel shows highlighted borders and selected priority is inverted
+
+**Stats Panel** - Task statistics and metrics
+- DUE/OVERDUE: Filter tasks that are overdue or due today
+- DONE TODAY: Filter tasks completed today
+- ACTIVE: Filter to show only active (incomplete) tasks
+- Navigate with `↑`/`↓` and press `enter` to apply filter
+
+**Projects Panel** - All project tags (+tag)
+- Navigate with `↑`/`↓` to select a project
+- Press `enter` to filter tasks by the selected project
+- Shows all unique project tags sorted alphabetically
+
+**Contexts Panel** - All context tags (@tag)
+- Navigate with `↑`/`↓` to select a context
+- Press `enter` to filter tasks by the selected context
+- Shows all unique context tags sorted alphabetically
+
+**Visual Feedback:**
+- Focused panel has highlighted borders in yellow
+- Selected item within panel shows with `>` cursor and inverted colors
+- Active filter displays in title bar (e.g., "[Filter: +mission]" or "[Filter: A]")
+- Status bar shows current panel name and filtering instructions
+
+**Clearing Filters:**
+- Press `ESC` when in tasks panel with active filter to clear it
+- Press `ESC` from any other panel to return to tasks panel
+- Apply a new filter to replace the current one
 
 ## Todo.txt Format
 
