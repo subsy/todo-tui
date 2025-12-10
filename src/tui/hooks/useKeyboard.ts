@@ -14,16 +14,21 @@ export function useKeyboardNavigation(filePath?: string) {
     focusedPanel,
     panelCursorIndex,
     activeFilter,
+    commandBarActive,
+    showHelp,
     setCurrentTaskIndex,
     setFocusedPanel,
     setPanelCursorIndex,
     toggleShowCompleted,
+    toggleHighlightOverdue,
     setActiveFilter,
     cycleSortMode,
     toggleTaskCompletion,
     undo,
     saveHistory,
     updateFilteredTasks,
+    openCommandBar,
+    toggleHelp,
   } = useTodoStore();
 
   // Get max index for current panel
@@ -96,6 +101,17 @@ export function useKeyboardNavigation(filePath?: string) {
     const keyName = key.name || key.char;
     const shift = key.shift || false;
     const ctrl = key.ctrl || false;
+
+    // If command bar is active, let it handle keys
+    if (commandBarActive) {
+      return;
+    }
+
+    // If help is showing, any key closes it
+    if (showHelp) {
+      toggleHelp();
+      return;
+    }
 
     // Ctrl+C to quit
     if (ctrl && keyName === 'c') {
@@ -233,6 +249,57 @@ export function useKeyboardNavigation(filePath?: string) {
           updateFilteredTasks();
         }
       }
+      return;
+    }
+
+    // n or a - new task
+    if (keyName === 'n' || keyName === 'a') {
+      openCommandBar('newTask', 'New task:');
+      return;
+    }
+
+    // e or enter in tasks panel - edit task
+    if ((keyName === 'e' || keyName === 'return' || keyName === 'enter') && focusedPanel === 'tasks') {
+      const task = filteredTasks[currentTaskIndex];
+      if (task) {
+        openCommandBar('editTask', 'Edit task:', task.text);
+      }
+      return;
+    }
+
+    // / - search
+    if (keyName === '/') {
+      openCommandBar('search', 'Search:');
+      return;
+    }
+
+    // p - add project tag
+    if (keyName === 'p' && focusedPanel === 'tasks') {
+      openCommandBar('addProject', 'Project tag (without +):');
+      return;
+    }
+
+    // c - add context tag
+    if (keyName === 'c' && focusedPanel === 'tasks') {
+      openCommandBar('addContext', 'Context tag (without @):');
+      return;
+    }
+
+    // d - add due date
+    if (keyName === 'd' && focusedPanel === 'tasks') {
+      openCommandBar('addDueDate', 'Due date (YYYY-MM-DD):');
+      return;
+    }
+
+    // ? - help
+    if (keyName === '?' || (shift && keyName === '/')) {
+      toggleHelp();
+      return;
+    }
+
+    // o - toggle highlight overdue
+    if (keyName === 'o') {
+      toggleHighlightOverdue();
       return;
     }
   });

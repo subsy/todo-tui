@@ -6,41 +6,72 @@ interface CommandBarProps {
   defaultValue?: string;
   onSubmit: (value: string) => void;
   onCancel: () => void;
+  onChange?: (value: string) => void;
 }
 
-export function CommandBar({ prompt, defaultValue = '', onSubmit, onCancel }: CommandBarProps) {
+export function CommandBar({ prompt, defaultValue = '', onSubmit, onCancel, onChange }: CommandBarProps) {
   const [value, setValue] = useState(defaultValue);
+  const [cursorPos, setCursorPos] = useState(defaultValue.length);
 
-  useKeyboard((key) => {
-    if (key === '\r') {
-      // Enter key
+  useKeyboard((key: any) => {
+    const keyName = key.name || key.char;
+
+    if (keyName === 'return' || keyName === 'enter') {
       onSubmit(value);
-    } else if (key === '\x1b') {
-      // Escape key
+    } else if (keyName === 'escape') {
       onCancel();
-    } else if (key === '\x7f' || key === '\b') {
-      // Backspace
-      setValue(prev => prev.slice(0, -1));
-    } else if (key.length === 1 && key >= ' ' && key <= '~') {
+    } else if (keyName === 'backspace') {
+      if (cursorPos > 0) {
+        const newValue = value.slice(0, cursorPos - 1) + value.slice(cursorPos);
+        setValue(newValue);
+        setCursorPos(cursorPos - 1);
+        onChange?.(newValue);
+      }
+    } else if (keyName === 'delete') {
+      if (cursorPos < value.length) {
+        const newValue = value.slice(0, cursorPos) + value.slice(cursorPos + 1);
+        setValue(newValue);
+        onChange?.(newValue);
+      }
+    } else if (keyName === 'left') {
+      if (cursorPos > 0) {
+        setCursorPos(cursorPos - 1);
+      }
+    } else if (keyName === 'right') {
+      if (cursorPos < value.length) {
+        setCursorPos(cursorPos + 1);
+      }
+    } else if (keyName === 'home') {
+      setCursorPos(0);
+    } else if (keyName === 'end') {
+      setCursorPos(value.length);
+    } else if (key.char && key.char.length === 1 && !key.ctrl && !key.meta) {
       // Printable character
-      setValue(prev => prev + key);
+      const newValue = value.slice(0, cursorPos) + key.char + value.slice(cursorPos);
+      setValue(newValue);
+      setCursorPos(cursorPos + 1);
+      onChange?.(newValue);
     }
   });
 
+  // Render value with cursor
+  const beforeCursor = value.slice(0, cursorPos);
+  const atCursor = value[cursorPos] || ' ';
+  const afterCursor = value.slice(cursorPos + 1);
+
   return (
     <box
-      position="absolute"
-      bottom={0}
-      left={0}
-      right={0}
       borderStyle="single"
       borderColor="yellow"
-      backgroundColor="black"
       padding={1}
     >
-      <text color="yellow">{prompt} </text>
-      <text color="white">{value}</text>
-      <text color="gray">█</text>
+      <box flexDirection="row">
+        <text color="yellow">{prompt} </text>
+        <text color="white">{beforeCursor}</text>
+        <text color="black" backgroundColor="white">{atCursor}</text>
+        <text color="white">{afterCursor}</text>
+      </box>
+      <text color="gray">Enter to save, ESC to cancel</text>
     </box>
   );
 }

@@ -30,6 +30,16 @@ interface TodoState {
   searchFilter: string;
   activeFilter?: ActiveFilter;
 
+  // Command bar
+  commandBarActive: boolean;
+  commandBarMode: 'none' | 'newTask' | 'editTask' | 'search' | 'addProject' | 'addContext' | 'addDueDate' | 'confirm';
+  commandBarPrompt: string;
+  commandBarDefaultValue: string;
+  commandBarData?: any;
+
+  // Help/Overlay
+  showHelp: boolean;
+
   // History
   history: Task[][];
 
@@ -55,6 +65,14 @@ interface TodoState {
   setSearchFilter: (filter: string) => void;
   setActiveFilter: (filter?: ActiveFilter) => void;
   clearFilters: () => void;
+
+  // Actions: Command bar
+  openCommandBar: (mode: TodoState['commandBarMode'], prompt: string, defaultValue?: string, data?: any) => void;
+  closeCommandBar: () => void;
+  handleCommandBarSubmit: (value: string, filePath?: string) => Promise<void>;
+
+  // Actions: Help
+  toggleHelp: () => void;
 
   // Actions: History
   saveToHistory: () => void;
@@ -99,6 +117,11 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   highlightOverdue: false,
   sortMode: 'priority',
   searchFilter: '',
+  commandBarActive: false,
+  commandBarMode: 'none',
+  commandBarPrompt: '',
+  commandBarDefaultValue: '',
+  showHelp: false,
   history: [],
 
   // Data Actions
@@ -180,6 +203,209 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   clearFilters: () => {
     set({ activeFilter: undefined, searchFilter: '' });
     get().updateFilteredTasks();
+  },
+
+  // Command bar actions
+  openCommandBar: (mode, prompt, defaultValue = '', data) => {
+    set({
+      commandBarActive: true,
+      commandBarMode: mode,
+      commandBarPrompt: prompt,
+      commandBarDefaultValue: defaultValue,
+      commandBarData: data,
+    });
+  },
+
+  closeCommandBar: () => {
+    set({
+      commandBarActive: false,
+      commandBarMode: 'none',
+      commandBarPrompt: '',
+      commandBarDefaultValue: '',
+      commandBarData: undefined,
+    });
+  },
+
+  handleCommandBarSubmit: async (value, filePath) => {
+    const { commandBarMode, filteredTasks, currentTaskIndex, tasks, commandBarData } = get();
+    const today = new Date().toISOString().split('T')[0];
+
+    if (commandBarMode === 'newTask' && value.trim()) {
+      get().saveToHistory();
+
+      // Parse priority from task text
+      let priority: string | null = null;
+      let cleanText = value;
+      const priorityMatch = value.match(/^\(([A-Z])\)\s+(.+)$/);
+      if (priorityMatch) {
+        priority = priorityMatch[1]!;
+        cleanText = priorityMatch[2]!;
+      }
+
+      const newTask: Task = {
+        id: tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1,
+        completed: false,
+        priority,
+        completionDate: null,
+        creationDate: today,
+        text: cleanText,
+        contexts: (cleanText.match(/@\S+/g) || []).map(c => c.substring(1)),
+        projects: (cleanText.match(/\+\S+/g) || []).map(p => p.substring(1)),
+        metadata: {},
+      };
+
+      // Parse metadata
+      const metadataMatches = cleanText.match(/(\S+):(\S+)/g);
+      if (metadataMatches) {
+        for (const match of metadataMatches) {
+          const [key, val] = match.split(':');
+          if (key && val && !key.startsWith('@') && !key.startsWith('+')) {
+            newTask.metadata[key] = val;
+          }
+        }
+      }
+
+      const updatedTasks = [...tasks, newTask];
+      set({ tasks: updatedTasks });
+      get().updateFilteredTasks();
+
+      // Move to the new task
+      const newFilteredTasks = get().filteredTasks;
+      const newTaskIndex = newFilteredTasks.findIndex(t => t.id === newTask.id);
+      if (newTaskIndex >= 0) {
+        set({ currentTaskIndex: newTaskIndex });
+      }
+
+      if (filePath) {
+        await saveTasks(updatedTasks, filePath);
+      }
+    } else if (commandBarMode === 'editTask' && value.trim()) {
+      const task = filteredTasks[currentTaskIndex];
+      if (task && value !== task.text) {
+        get().saveToHistory();
+
+        const updatedTasks = tasks.map(t => {
+          if (t.id === task.id) {
+            return {
+              ...t,
+              text: value,
+              contexts: (value.match(/@\S+/g) || []).map(c => c.substring(1)),
+              projects: (value.match(/\+\S+/g) || []).map(p => p.substring(1)),
+              metadata: {},
+            };
+          }
+          return t;
+        });
+
+        // Parse metadata for updated task
+        const taskIndex = updatedTasks.findIndex(t => t.id === task.id);
+        if (taskIndex >= 0) {
+          const metadataMatches = value.match(/(\S+):(\S+)/g);
+          if (metadataMatches) {
+            for (const match of metadataMatches) {
+              const [key, val] = match.split(':');
+              if (key && val && !key.startsWith('@') && !key.startsWith('+')) {
+                updatedTasks[taskIndex]!.metadata[key] = val;
+              }
+            }
+          }
+        }
+
+        set({ tasks: updatedTasks });
+        get().updateFilteredTasks();
+
+        if (filePath) {
+          await saveTasks(updatedTasks, filePath);
+        }
+      }
+    } else if (commandBarMode === 'search') {
+      set({ searchFilter: value });
+      get().updateFilteredTasks();
+      set({ currentTaskIndex: 0 });
+    } else if (commandBarMode === 'addProject' && value.trim()) {
+      const task = filteredTasks[currentTaskIndex];
+      if (task && !task.projects.includes(value)) {
+        get().saveToHistory();
+
+        const updatedTasks = tasks.map(t => {
+          if (t.id === task.id) {
+            return {
+              ...t,
+              projects: [...t.projects, value],
+              text: t.text + ` +${value}`,
+            };
+          }
+          return t;
+        });
+
+        set({ tasks: updatedTasks });
+        get().updateFilteredTasks();
+
+        if (filePath) {
+          await saveTasks(updatedTasks, filePath);
+        }
+      }
+    } else if (commandBarMode === 'addContext' && value.trim()) {
+      const task = filteredTasks[currentTaskIndex];
+      if (task && !task.contexts.includes(value)) {
+        get().saveToHistory();
+
+        const updatedTasks = tasks.map(t => {
+          if (t.id === task.id) {
+            return {
+              ...t,
+              contexts: [...t.contexts, value],
+              text: t.text + ` @${value}`,
+            };
+          }
+          return t;
+        });
+
+        set({ tasks: updatedTasks });
+        get().updateFilteredTasks();
+
+        if (filePath) {
+          await saveTasks(updatedTasks, filePath);
+        }
+      }
+    } else if (commandBarMode === 'addDueDate' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const task = filteredTasks[currentTaskIndex];
+      if (task) {
+        get().saveToHistory();
+
+        const updatedTasks = tasks.map(t => {
+          if (t.id === task.id) {
+            const newMetadata = { ...t.metadata, due: value };
+            let newText = t.text;
+            if (t.metadata.due) {
+              newText = newText.replace(/due:\S+/, `due:${value}`);
+            } else {
+              newText += ` due:${value}`;
+            }
+            return {
+              ...t,
+              metadata: newMetadata,
+              text: newText,
+            };
+          }
+          return t;
+        });
+
+        set({ tasks: updatedTasks });
+        get().updateFilteredTasks();
+
+        if (filePath) {
+          await saveTasks(updatedTasks, filePath);
+        }
+      }
+    }
+
+    get().closeCommandBar();
+  },
+
+  // Help actions
+  toggleHelp: () => {
+    set((state) => ({ showHelp: !state.showHelp }));
   },
 
   // History Actions

@@ -6,6 +6,8 @@ import { loadTasks } from '../storage.ts';
 import { AppContainer, Header, Footer, MainContent } from './components/Layout.tsx';
 import { TaskList } from './components/TaskList.tsx';
 import { PanelContainer } from './components/PanelContainer.tsx';
+import { CommandBar } from './components/CommandBar.tsx';
+import { HelpScreen } from './components/HelpScreen.tsx';
 import { useKeyboardNavigation } from './hooks/useKeyboard.ts';
 
 interface AppProps {
@@ -19,6 +21,12 @@ function App({ filePath }: AppProps) {
   const activeFilter = useTodoStore(state => state.activeFilter);
   const showCompleted = useTodoStore(state => state.showCompleted);
   const sortMode = useTodoStore(state => state.sortMode);
+  const commandBarActive = useTodoStore(state => state.commandBarActive);
+  const commandBarPrompt = useTodoStore(state => state.commandBarPrompt);
+  const commandBarDefaultValue = useTodoStore(state => state.commandBarDefaultValue);
+  const closeCommandBar = useTodoStore(state => state.closeCommandBar);
+  const handleCommandBarSubmit = useTodoStore(state => state.handleCommandBarSubmit);
+  const showHelp = useTodoStore(state => state.showHelp);
 
   // Setup keyboard navigation
   useKeyboardNavigation(filePath);
@@ -60,6 +68,11 @@ function App({ filePath }: AppProps) {
 
   const status = `Panel: ${panelName} | Sort: ${sortMode} | ${shortcuts}`;
 
+  // Show help screen if active
+  if (showHelp) {
+    return <HelpScreen />;
+  }
+
   return (
     <AppContainer>
       <Header>{title}</Header>
@@ -67,7 +80,16 @@ function App({ filePath }: AppProps) {
       <MainContent>
         <TaskList />
       </MainContent>
-      <Footer>{status}</Footer>
+      {commandBarActive ? (
+        <CommandBar
+          prompt={commandBarPrompt}
+          defaultValue={commandBarDefaultValue}
+          onSubmit={(value) => handleCommandBarSubmit(value, filePath)}
+          onCancel={closeCommandBar}
+        />
+      ) : (
+        <Footer>{status}</Footer>
+      )}
     </AppContainer>
   );
 }
