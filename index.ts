@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { addCommand, listCommand, doCommand, editCommand, deleteCommand, priCommand, depriCommand } from './src/commands/index.ts';
 import { keyboardTUI } from './src/tui/index.ts';
+import { runOpenTUIApp } from './src/tui/opentui-app.tsx';
 
 const program = new Command();
 
@@ -87,14 +88,23 @@ program
     await depriCommand(parseInt(id), filePath);
   });
 
-// Interactive TUI mode
+// Interactive TUI mode (original)
 program
   .command('interactive')
   .alias('i')
-  .description('Launch interactive TUI mode')
+  .description('Launch interactive TUI mode (original)')
   .action(async () => {
     const filePath = program.opts().file;
     await keyboardTUI(filePath);
+  });
+
+// OpenTUI mode (React-based)
+program
+  .command('tui')
+  .description('Launch OpenTUI mode (experimental React-based TUI)')
+  .action(async () => {
+    const filePath = program.opts().file;
+    await runOpenTUIApp(filePath);
   });
 
 // Default action: list tasks
