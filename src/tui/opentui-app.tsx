@@ -6,6 +6,7 @@ import { loadTasks } from '../storage.ts';
 import { AppContainer, Header, Footer, MainContent } from './components/Layout.tsx';
 import { TaskList } from './components/TaskList.tsx';
 import { PanelContainer } from './components/PanelContainer.tsx';
+import { useKeyboardNavigation } from './hooks/useKeyboard.ts';
 
 interface AppProps {
   filePath?: string;
@@ -18,6 +19,9 @@ function App({ filePath }: AppProps) {
   const activeFilter = useTodoStore(state => state.activeFilter);
   const showCompleted = useTodoStore(state => state.showCompleted);
   const sortMode = useTodoStore(state => state.sortMode);
+
+  // Setup keyboard navigation
+  useKeyboardNavigation(filePath);
 
   // Load tasks on mount
   useEffect(() => {
