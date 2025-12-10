@@ -1,106 +1,106 @@
+# Development Guide for Todo TUI
 
-Default to using Bun instead of Node.js.
+This is a CLI/TUI application built with Bun and TypeScript.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+## Bun Basics
 
-## APIs
+Use Bun instead of Node.js for all operations:
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+- `bun run dev` - Run the app in development mode
+- `bun run build` - Compile to standalone binary
+- `bun test` - Run tests
+- `bun install` - Install dependencies
+
+## Project Structure
+
+```
+todo-cli/
+├── src/
+│   ├── parser/         # Todo.txt format parser
+│   ├── commands/       # CLI command implementations
+│   ├── ui/             # UI formatting and colors
+│   ├── tui/            # Interactive TUI mode
+│   ├── storage.ts      # File I/O operations
+│   └── config.ts       # User configuration
+├── index.ts            # Main CLI entry point
+└── package.json
+```
+
+## Building
+
+The app compiles to a standalone binary with no dependencies:
+
+```bash
+bun build index.ts --compile --outfile todo
+```
+
+This creates a self-contained executable that can be distributed and run without requiring Bun or Node.js to be installed.
 
 ## Testing
 
-Use `bun test` to run tests.
+Use `bun test` to run tests:
 
-```ts#index.test.ts
+```ts
 import { test, expect } from "bun:test";
 
-test("hello world", () => {
-  expect(1).toBe(1);
+test("parse todo.txt task", () => {
+  const task = parseTask("(A) 2025-12-10 Call Mom +Family @phone");
+  expect(task.priority).toBe("A");
+  expect(task.projects).toContain("Family");
 });
 ```
 
-## Frontend
+## Terminal/TUI Development
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
+### Key Libraries
 
-Server:
+- **chalk** - Terminal colors and styling
+- **commander** - CLI argument parsing
+- **readline** - Keyboard input handling
 
-```ts#index.ts
-import index from "./index.html"
+### TUI Considerations
 
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
+- Use `stdin.setRawMode(true)` for character-by-character input
+- Use ANSI escape codes for cursor positioning and screen clearing
+- Handle terminal resize events
+- Always restore terminal state on exit (`setRawMode(false)`)
+- Hide cursor during rendering, show on exit
+
+### File I/O
+
+Prefer `Bun.file()` for file operations:
+
+```ts
+// Reading
+const file = Bun.file("todo.txt");
+const content = await file.text();
+
+// Writing
+await Bun.write("todo.txt", content);
 ```
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
+## Todo.txt Format
 
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
+Follow the [todo.txt specification](https://github.com/todotxt/todo.txt):
 
-With the following `frontend.tsx`:
+- Priorities: `(A)` through `(Z)` at start of line
+- Completion: `x 2025-12-10` for completed tasks
+- Dates: `YYYY-MM-DD` format
+- Projects: `+ProjectName`
+- Contexts: `@ContextName`
+- Metadata: `key:value` pairs
 
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
+## Development Workflow
 
-// import .css files directly and it works
-import './index.css';
+1. Make changes to source files in `src/`
+2. Test with `bun run dev`
+3. Run tests with `bun test`
+4. Build binary with `bun run build`
+5. Test the compiled binary: `./todo i`
 
-const root = createRoot(document.body);
+## Tips
 
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+- Use `Bun.env` to access environment variables (no need for dotenv)
+- Bun automatically transpiles TypeScript
+- Use `--hot` flag for hot reload during development
+- The compiled binary includes all dependencies and the Bun runtime
