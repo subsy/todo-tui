@@ -1,10 +1,12 @@
 import React from 'react';
 import { useTodoStore } from '../store/useTodoStore.ts';
+import { useTheme } from '../themes/ThemeContext.tsx';
 
 export function StatsPanel() {
   const tasks = useTodoStore(state => state.tasks);
   const focusedPanel = useTodoStore(state => state.focusedPanel);
   const panelCursorIndex = useTodoStore(state => state.panelCursorIndex);
+  const theme = useTheme();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -17,25 +19,25 @@ export function StatsPanel() {
   const completedToday = tasks.filter(t => t.completed && t.completionDate === today);
 
   const stats = [
-    { label: 'DUE/OVERDUE', value: dueOverdue.length, color: 'red' },
-    { label: 'DONE TODAY', value: completedToday.length, color: 'green' },
-    { label: 'ACTIVE', value: `${activeTasks.length}/${tasks.length}`, color: 'gray' },
+    { label: 'DUE/OVERDUE', value: dueOverdue.length, color: theme.colors.overdue },
+    { label: 'DONE TODAY', value: completedToday.length, color: theme.colors.success },
+    { label: 'ACTIVE', value: `${activeTasks.length}/${tasks.length}`, color: theme.colors.textDim },
   ];
 
   const isFocused = focusedPanel === 'stats';
-  const borderColor = isFocused ? 'yellow' : 'gray';
+  const borderColor = isFocused ? theme.colors.highlight : theme.colors.border;
 
   return (
     <box borderStyle="single" borderColor={borderColor} padding={1} flexDirection="column">
-      <text color="cyan">Stats</text>
+      <text color={theme.colors.context}>Stats</text>
       {stats.map((stat, idx) => {
         const isSelected = isFocused && panelCursorIndex === idx;
         const cursor = isSelected ? '> ' : '  ';
-        const bgColor = isSelected ? 'blue' : undefined;
+        const bgColor = isSelected ? theme.colors.selection : undefined;
 
         return (
           <box key={idx} backgroundColor={bgColor}>
-            <text color={stat.color as any}>{cursor}{stat.label}: {stat.value}</text>
+            <text color={isSelected ? theme.colors.highlight : stat.color}>{cursor}{stat.label}: {stat.value}</text>
           </box>
         );
       })}

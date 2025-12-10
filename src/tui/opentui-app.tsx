@@ -10,13 +10,13 @@ import { CommandBar } from './components/CommandBar.tsx';
 import { HelpScreen } from './components/HelpScreen.tsx';
 import { ThemeSelector } from './components/ThemeSelector.tsx';
 import { useKeyboardNavigation } from './hooks/useKeyboard.ts';
-import { themes } from './themes/index.ts';
+import { ThemeProvider } from './themes/ThemeContext.tsx';
 
 interface AppProps {
   filePath?: string;
 }
 
-function App({ filePath }: AppProps) {
+function AppContent({ filePath }: AppProps) {
   const filteredTasks = useTodoStore(state => state.filteredTasks);
   const setTasks = useTodoStore(state => state.setTasks);
   const focusedPanel = useTodoStore(state => state.focusedPanel);
@@ -33,9 +33,6 @@ function App({ filePath }: AppProps) {
   const currentTheme = useTodoStore(state => state.currentTheme);
   const toggleThemeSelector = useTodoStore(state => state.toggleThemeSelector);
   const setTheme = useTodoStore(state => state.setTheme);
-
-  // Get current theme colors
-  const theme = themes[currentTheme] || themes.catppuccin!;
 
   // Setup keyboard navigation
   useKeyboardNavigation(filePath);
@@ -111,6 +108,14 @@ function App({ filePath }: AppProps) {
         <Footer>{status}</Footer>
       )}
     </AppContainer>
+  );
+}
+
+function App({ filePath }: AppProps) {
+  return (
+    <ThemeProvider>
+      <AppContent filePath={filePath} />
+    </ThemeProvider>
   );
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { themes, themeNames, type Theme } from '../themes/index.ts';
-import { useTodoStore } from '../store/useTodoStore.ts';
 import { useKeyboard } from '@opentui/react';
+import { useTheme } from '../themes/ThemeContext.tsx';
 
 interface ThemeSelectorProps {
   onClose: () => void;
@@ -9,21 +9,19 @@ interface ThemeSelectorProps {
   currentTheme: string;
 }
 
-function ColorSwatch({ color, label }: { color: string; label?: string }) {
-  return (
-    <text backgroundColor={color} color={color === '#1e1e2e' || color === '#282a36' || color === '#2e3440' || color === '#282828' || color === '#1a1b26' || color === '#002b36' || color === '#282c34' || color === '#2d2a2e' ? 'white' : 'black'}>
-      {label || '██'}
-    </text>
-  );
+function ColorSwatch({ color }: { color: string }) {
+  return <text backgroundColor={color}>{'  '}</text>;
 }
 
-function ThemePreview({ theme, isSelected }: { theme: Theme; isSelected: boolean }) {
+function ThemePreview({ theme, isSelected, activeTheme }: { theme: Theme; isSelected: boolean; activeTheme: Theme }) {
   const c = theme.colors;
 
   return (
-    <box flexDirection="row">
-      <text color={isSelected ? 'yellow' : 'white'}>{isSelected ? '> ' : '  '}</text>
-      <text color={isSelected ? 'yellow' : 'white'} bold={isSelected}>
+    <box flexDirection="row" backgroundColor={isSelected ? activeTheme.colors.selection : undefined}>
+      <text color={isSelected ? activeTheme.colors.highlight : activeTheme.colors.text}>
+        {isSelected ? '> ' : '  '}
+      </text>
+      <text color={isSelected ? activeTheme.colors.highlight : activeTheme.colors.text} bold={isSelected}>
         {theme.name.padEnd(14)}
       </text>
       <ColorSwatch color={c.priorityHigh} />
@@ -47,6 +45,7 @@ export function ThemeSelector({ onClose, onSelect, currentTheme }: ThemeSelector
   const [selectedIndex, setSelectedIndex] = React.useState(
     themeNames.indexOf(currentTheme) >= 0 ? themeNames.indexOf(currentTheme) : 0
   );
+  const activeTheme = useTheme();
 
   useKeyboard((key: any) => {
     const keyName = key.name || key.char;
@@ -74,16 +73,16 @@ export function ThemeSelector({ onClose, onSelect, currentTheme }: ThemeSelector
   });
 
   return (
-    <box flexDirection="column" padding={2}>
-      <text color="yellow" bold>Select Theme</text>
+    <box flexDirection="column" padding={2} backgroundColor={activeTheme.colors.background}>
+      <text color={activeTheme.colors.highlight} bold>Select Theme</text>
       <text> </text>
 
       <box flexDirection="row">
-        <text color="gray">{'              '.padEnd(14)}</text>
-        <text color="gray">Pri </text>
-        <text color="gray">  UI </text>
-        <text color="gray">  Tags </text>
-        <text color="gray">  Base</text>
+        <text color={activeTheme.colors.muted}>{'                '.padEnd(16)}</text>
+        <text color={activeTheme.colors.muted}>Pri   </text>
+        <text color={activeTheme.colors.muted}>UI  </text>
+        <text color={activeTheme.colors.muted}>Tags    </text>
+        <text color={activeTheme.colors.muted}>Base</text>
       </box>
       <text> </text>
 
@@ -92,12 +91,13 @@ export function ThemeSelector({ onClose, onSelect, currentTheme }: ThemeSelector
           key={name}
           theme={themes[name]!}
           isSelected={index === selectedIndex}
+          activeTheme={activeTheme}
         />
       ))}
 
       <text> </text>
-      <text color="gray">↑/↓ or j/k to navigate • Enter to select • ESC to cancel</text>
-      <text color="gray">Current theme: {themes[currentTheme]?.name || currentTheme}</text>
+      <text color={activeTheme.colors.muted}>↑/↓ or j/k to navigate • Enter to select • ESC to cancel</text>
+      <text color={activeTheme.colors.textDim}>Current theme: {themes[currentTheme]?.name || currentTheme}</text>
     </box>
   );
 }

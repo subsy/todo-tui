@@ -1,10 +1,13 @@
 import React from 'react';
 import { useTodoStore } from '../store/useTodoStore.ts';
+import { useTheme } from '../themes/ThemeContext.tsx';
+import { getPriorityColor } from '../themes/index.ts';
 
 export function PriorityChart() {
   const tasks = useTodoStore(state => state.tasks);
   const focusedPanel = useTodoStore(state => state.focusedPanel);
   const panelCursorIndex = useTodoStore(state => state.panelCursorIndex);
+  const theme = useTheme();
 
   // Count priorities (only active tasks)
   const activeTasks = tasks.filter(t => !t.completed);
@@ -27,38 +30,42 @@ export function PriorityChart() {
 
   // Build bar chart rows (5 rows tall)
   const barHeight = 5;
-  const bars: string[] = [];
-
-  for (let row = barHeight - 1; row >= 0; row--) {
-    let line = '';
-    for (let i = 0; i < allPriorities.length; i++) {
-      const count = counts[i];
-      const barLevel = Math.ceil((count / maxCount) * barHeight);
-      const isSelected = focusedPanel === 'priorities' && panelCursorIndex === i;
-
-      if (barLevel > row) {
-        line += isSelected ? '▓' : '█';
-      } else {
-        line += ' ';
-      }
-      line += ' ';
-    }
-    bars.push(line);
-  }
-
-  // Build label row
-  let labelLine = allPriorities.join(' ');
 
   const isFocused = focusedPanel === 'priorities';
-  const borderColor = isFocused ? 'yellow' : 'gray';
+  const borderColor = isFocused ? theme.colors.highlight : theme.colors.border;
 
   return (
     <box borderStyle="single" borderColor={borderColor} padding={1} flexDirection="column">
-      <text color="cyan">Priorities</text>
-      {bars.map((bar, idx) => (
-        <text key={idx} color="blue">{bar}</text>
-      ))}
-      <text color="gray">{labelLine}</text>
+      <text color={theme.colors.context}>Priorities</text>
+      {Array.from({ length: barHeight }, (_, rowIdx) => {
+        const row = barHeight - 1 - rowIdx;
+        return (
+          <box key={rowIdx} flexDirection="row">
+            {allPriorities.map((priority, i) => {
+              const count = counts[i]!;
+              const barLevel = Math.ceil((count / maxCount) * barHeight);
+              const isSelected = focusedPanel === 'priorities' && panelCursorIndex === i;
+              const color = getPriorityColor(priority, theme);
+
+              return (
+                <text key={i} color={isSelected ? theme.colors.highlight : color}>
+                  {barLevel > row ? (isSelected ? '▓' : '█') : ' '}{' '}
+                </text>
+              );
+            })}
+          </box>
+        );
+      })}
+      <box flexDirection="row">
+        {allPriorities.map((p, i) => {
+          const isSelected = focusedPanel === 'priorities' && panelCursorIndex === i;
+          return (
+            <text key={i} color={isSelected ? theme.colors.highlight : theme.colors.textDim}>
+              {p}{' '}
+            </text>
+          );
+        })}
+      </box>
     </box>
   );
 }

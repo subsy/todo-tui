@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useKeyboard } from '@opentui/react';
+import { useTheme } from '../themes/ThemeContext.tsx';
 
 interface CommandBarProps {
   prompt: string;
@@ -12,6 +13,7 @@ interface CommandBarProps {
 export function CommandBar({ prompt, defaultValue = '', onSubmit, onCancel, onChange }: CommandBarProps) {
   const [value, setValue] = useState(defaultValue);
   const [cursorPos, setCursorPos] = useState(defaultValue.length);
+  const theme = useTheme();
 
   useKeyboard((key: any) => {
     const keyName = key.name || key.char;
@@ -62,16 +64,16 @@ export function CommandBar({ prompt, defaultValue = '', onSubmit, onCancel, onCh
   return (
     <box
       borderStyle="single"
-      borderColor="yellow"
+      borderColor={theme.colors.highlight}
       padding={1}
     >
       <box flexDirection="row">
-        <text color="yellow">{prompt} </text>
-        <text color="white">{beforeCursor}</text>
-        <text color="black" backgroundColor="white">{atCursor}</text>
-        <text color="white">{afterCursor}</text>
+        <text color={theme.colors.highlight}>{prompt} </text>
+        <text color={theme.colors.text}>{beforeCursor}</text>
+        <text color={theme.colors.background} backgroundColor={theme.colors.text}>{atCursor}</text>
+        <text color={theme.colors.text}>{afterCursor}</text>
       </box>
-      <text color="gray">Enter to save, ESC to cancel</text>
+      <text color={theme.colors.muted}>Enter to save, ESC to cancel</text>
     </box>
   );
 }
