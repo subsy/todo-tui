@@ -39,6 +39,10 @@ interface TodoState {
 
   // Help/Overlay
   showHelp: boolean;
+  showThemeSelector: boolean;
+
+  // Theme
+  currentTheme: string;
 
   // History
   history: Task[][];
@@ -71,8 +75,10 @@ interface TodoState {
   closeCommandBar: () => void;
   handleCommandBarSubmit: (value: string, filePath?: string) => Promise<void>;
 
-  // Actions: Help
+  // Actions: Help/Theme
   toggleHelp: () => void;
+  toggleThemeSelector: () => void;
+  setTheme: (themeName: string) => void;
 
   // Actions: History
   saveToHistory: () => void;
@@ -122,6 +128,8 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   commandBarPrompt: '',
   commandBarDefaultValue: '',
   showHelp: false,
+  showThemeSelector: false,
+  currentTheme: 'catppuccin',
   history: [],
 
   // Data Actions
@@ -403,9 +411,17 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     get().closeCommandBar();
   },
 
-  // Help actions
+  // Help/Theme actions
   toggleHelp: () => {
     set((state) => ({ showHelp: !state.showHelp }));
+  },
+
+  toggleThemeSelector: () => {
+    set((state) => ({ showThemeSelector: !state.showThemeSelector }));
+  },
+
+  setTheme: (themeName) => {
+    set({ currentTheme: themeName });
   },
 
   // History Actions

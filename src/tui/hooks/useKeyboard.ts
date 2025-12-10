@@ -16,6 +16,7 @@ export function useKeyboardNavigation(filePath?: string) {
     activeFilter,
     commandBarActive,
     showHelp,
+    showThemeSelector,
     setCurrentTaskIndex,
     setFocusedPanel,
     setPanelCursorIndex,
@@ -29,6 +30,7 @@ export function useKeyboardNavigation(filePath?: string) {
     updateFilteredTasks,
     openCommandBar,
     toggleHelp,
+    toggleThemeSelector,
   } = useTodoStore();
 
   // Get max index for current panel
@@ -104,6 +106,11 @@ export function useKeyboardNavigation(filePath?: string) {
 
     // If command bar is active, let it handle keys
     if (commandBarActive) {
+      return;
+    }
+
+    // If theme selector is showing, let it handle keys
+    if (showThemeSelector) {
       return;
     }
 
@@ -300,6 +307,12 @@ export function useKeyboardNavigation(filePath?: string) {
     // o - toggle highlight overdue
     if (keyName === 'o') {
       toggleHighlightOverdue();
+      return;
+    }
+
+    // t - theme selector
+    if (keyName === 't') {
+      toggleThemeSelector();
       return;
     }
   });

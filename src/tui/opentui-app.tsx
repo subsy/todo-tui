@@ -8,7 +8,9 @@ import { TaskList } from './components/TaskList.tsx';
 import { PanelContainer } from './components/PanelContainer.tsx';
 import { CommandBar } from './components/CommandBar.tsx';
 import { HelpScreen } from './components/HelpScreen.tsx';
+import { ThemeSelector } from './components/ThemeSelector.tsx';
 import { useKeyboardNavigation } from './hooks/useKeyboard.ts';
+import { themes } from './themes/index.ts';
 
 interface AppProps {
   filePath?: string;
@@ -27,6 +29,13 @@ function App({ filePath }: AppProps) {
   const closeCommandBar = useTodoStore(state => state.closeCommandBar);
   const handleCommandBarSubmit = useTodoStore(state => state.handleCommandBarSubmit);
   const showHelp = useTodoStore(state => state.showHelp);
+  const showThemeSelector = useTodoStore(state => state.showThemeSelector);
+  const currentTheme = useTodoStore(state => state.currentTheme);
+  const toggleThemeSelector = useTodoStore(state => state.toggleThemeSelector);
+  const setTheme = useTodoStore(state => state.setTheme);
+
+  // Get current theme colors
+  const theme = themes[currentTheme] || themes.catppuccin!;
 
   // Setup keyboard navigation
   useKeyboardNavigation(filePath);
@@ -63,10 +72,21 @@ function App({ filePath }: AppProps) {
                     focusedPanel === 'stats' ? 'Stats' :
                     focusedPanel === 'projects' ? 'Projects' : 'Contexts';
 
-  const shortcuts = '? Help | TAB Panels | space Toggle | n New | v ' +
+  const shortcuts = '? Help | t Theme | TAB Panels | space Toggle | n New | v ' +
     (showCompleted ? 'Hide' : 'Show') + ' All | q Quit';
 
   const status = `Panel: ${panelName} | Sort: ${sortMode} | ${shortcuts}`;
+
+  // Show theme selector if active
+  if (showThemeSelector) {
+    return (
+      <ThemeSelector
+        currentTheme={currentTheme}
+        onClose={toggleThemeSelector}
+        onSelect={setTheme}
+      />
+    );
+  }
 
   // Show help screen if active
   if (showHelp) {
