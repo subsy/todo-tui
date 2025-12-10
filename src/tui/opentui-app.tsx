@@ -5,6 +5,7 @@ import { useTodoStore } from './store/useTodoStore.ts';
 import { loadTasks } from '../storage.ts';
 import { AppContainer, Header, Footer, MainContent } from './components/Layout.tsx';
 import { TaskList } from './components/TaskList.tsx';
+import { PanelContainer } from './components/PanelContainer.tsx';
 
 interface AppProps {
   filePath?: string;
@@ -58,6 +59,7 @@ function App({ filePath }: AppProps) {
   return (
     <AppContainer>
       <Header>{title}</Header>
+      <PanelContainer />
       <MainContent>
         <TaskList />
       </MainContent>
