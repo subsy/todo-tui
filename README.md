@@ -162,7 +162,16 @@ Format:
 
 ## Configuration
 
-### Custom Todo File Location
+### Todo File Location
+
+By default, the app searches for `todo.txt` in this order:
+1. `TODO_FILE` environment variable (if set)
+2. Current directory (`./todo.txt`)
+3. Home directory (`~/todo.txt`)
+
+If no file is found, an error is displayed with instructions.
+
+You can override the location:
 
 Via command line flag:
 ```bash

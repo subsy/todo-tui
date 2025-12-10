@@ -4,7 +4,33 @@ import { join } from 'path';
 import { homedir } from 'os';
 
 export function getDefaultTodoPath(): string {
-  return process.env.TODO_FILE || join(homedir(), 'todo.txt');
+  // Priority 1: Environment variable
+  if (process.env.TODO_FILE) {
+    return process.env.TODO_FILE;
+  }
+
+  // Priority 2: Current directory
+  const currentDirPath = join(process.cwd(), 'todo.txt');
+  if (existsSync(currentDirPath)) {
+    return currentDirPath;
+  }
+
+  // Priority 3: Home directory
+  const homeDirPath = join(homedir(), 'todo.txt');
+  if (existsSync(homeDirPath)) {
+    return homeDirPath;
+  }
+
+  // No todo.txt found - throw error
+  throw new Error(
+    'No todo.txt file found!\n' +
+    'Searched in:\n' +
+    `  - Current directory: ${currentDirPath}\n` +
+    `  - Home directory: ${homeDirPath}\n\n` +
+    'Please create a todo.txt file in one of these locations, or specify a path with:\n' +
+    '  todo -f /path/to/todo.txt\n' +
+    '  export TODO_FILE=/path/to/todo.txt'
+  );
 }
 
 export async function loadTasks(filePath?: string): Promise<Task[]> {
