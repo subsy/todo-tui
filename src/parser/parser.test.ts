@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'bun:test';
-import { parseLine, serializeTask, parseTodoFile, serializeTodoFile } from './parser.ts';
+import { parseLine, serializeTask, parseTodoFile, serializeTodoFile, detectPriorityFormat, convertPriorities } from './parser.ts';
+import type { Task } from './types.ts';
 
 describe('parseLine', () => {
   it('should parse a simple task', () => {
@@ -202,5 +203,92 @@ Task 2
 
     const tasks = parseTodoFile(content);
     expect(tasks).toHaveLength(2);
+  });
+});
+
+describe('detectPriorityFormat', () => {
+  const createTask = (priority: string | null): Task => ({
+    id: 1,
+    completed: false,
+    priority,
+    completionDate: null,
+    creationDate: null,
+    text: 'Test task',
+    contexts: [],
+    projects: [],
+    metadata: {},
+  });
+
+  it('should detect letter priorities', () => {
+    const tasks = [createTask('A'), createTask('B'), createTask(null)];
+    expect(detectPriorityFormat(tasks)).toBe('letter');
+  });
+
+  it('should detect number priorities', () => {
+    const tasks = [createTask('0'), createTask('5'), createTask(null)];
+    expect(detectPriorityFormat(tasks)).toBe('number');
+  });
+
+  it('should detect mixed priorities', () => {
+    const tasks = [createTask('A'), createTask('5'), createTask(null)];
+    expect(detectPriorityFormat(tasks)).toBe('mixed');
+  });
+
+  it('should return none when no priorities exist', () => {
+    const tasks = [createTask(null), createTask(null)];
+    expect(detectPriorityFormat(tasks)).toBe('none');
+  });
+
+  it('should return none for empty task list', () => {
+    expect(detectPriorityFormat([])).toBe('none');
+  });
+});
+
+describe('convertPriorities', () => {
+  const createTask = (id: number, priority: string | null): Task => ({
+    id,
+    completed: false,
+    priority,
+    completionDate: null,
+    creationDate: null,
+    text: `Task ${id}`,
+    contexts: [],
+    projects: [],
+    metadata: {},
+  });
+
+  it('should convert letter to number priorities', () => {
+    const tasks = [createTask(1, 'A'), createTask(2, 'B'), createTask(3, 'J')];
+    const converted = convertPriorities(tasks, 'number');
+    expect(converted[0]?.priority).toBe('0');
+    expect(converted[1]?.priority).toBe('1');
+    expect(converted[2]?.priority).toBe('9');
+  });
+
+  it('should convert number to letter priorities', () => {
+    const tasks = [createTask(1, '0'), createTask(2, '5'), createTask(3, '9')];
+    const converted = convertPriorities(tasks, 'letter');
+    expect(converted[0]?.priority).toBe('A');
+    expect(converted[1]?.priority).toBe('F');
+    expect(converted[2]?.priority).toBe('J');
+  });
+
+  it('should cap letter priorities at 9 when converting to number', () => {
+    const tasks = [createTask(1, 'Z')];
+    const converted = convertPriorities(tasks, 'number');
+    expect(converted[0]?.priority).toBe('9');
+  });
+
+  it('should preserve null priorities', () => {
+    const tasks = [createTask(1, null), createTask(2, 'A')];
+    const converted = convertPriorities(tasks, 'number');
+    expect(converted[0]?.priority).toBeNull();
+    expect(converted[1]?.priority).toBe('0');
+  });
+
+  it('should not modify tasks that already match target format', () => {
+    const tasks = [createTask(1, '5')];
+    const converted = convertPriorities(tasks, 'number');
+    expect(converted[0]?.priority).toBe('5');
   });
 });

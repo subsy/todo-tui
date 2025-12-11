@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Task } from '../../parser/index.ts';
+import { convertPriorities } from '../../parser/parser.ts';
 import { saveTasks } from '../../storage.ts';
 import { saveConfig, type Config } from '../../config.ts';
 
@@ -45,6 +46,10 @@ interface TodoState {
   showHelp: boolean;
   showThemeSelector: boolean;
   showSettings: boolean;
+
+  // Priority format mismatch dialog
+  showFormatMismatchDialog: boolean;
+  detectedFormat: 'letter' | 'number' | 'mixed' | 'none';
 
   // Theme
   currentTheme: string;
@@ -97,6 +102,11 @@ interface TodoState {
   setTheme: (themeName: string) => void;
   toggleSettings: () => void;
   setPriorityMode: (mode: PriorityMode) => void;
+
+  // Actions: Format mismatch dialog
+  showFormatMismatch: (detectedFormat: 'letter' | 'number' | 'mixed' | 'none') => void;
+  hideFormatMismatch: () => void;
+  convertTasksToFormat: (targetFormat: 'letter' | 'number', filePath?: string) => Promise<void>;
 
   // Actions: History
   saveToHistory: () => void;
@@ -157,6 +167,8 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   showHelp: false,
   showThemeSelector: false,
   showSettings: false,
+  showFormatMismatchDialog: false,
+  detectedFormat: 'none',
   currentTheme: 'catppuccin',
   priorityMode: 'letter',
   history: [],
@@ -508,6 +520,30 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   },
   setPriorityMode: (mode) => {
     set({ priorityMode: mode });
+  },
+
+  // Format mismatch dialog actions
+  showFormatMismatch: (detectedFormat) => {
+    set({ showFormatMismatchDialog: true, detectedFormat });
+  },
+
+  hideFormatMismatch: () => {
+    set({ showFormatMismatchDialog: false });
+  },
+
+  convertTasksToFormat: async (targetFormat, filePath) => {
+    const { tasks } = get();
+    get().saveToHistory();
+
+    const convertedTasks = convertPriorities(tasks, targetFormat);
+    set({ tasks: convertedTasks });
+    get().updateFilteredTasks();
+
+    if (filePath) {
+      await saveTasks(convertedTasks, filePath);
+    }
+
+    get().hideFormatMismatch();
   },
 
   // History Actions

@@ -3,12 +3,14 @@ import { createRoot } from '@opentui/react';
 import { createCliRenderer } from '@opentui/core';
 import { useTodoStore } from './store/useTodoStore.ts';
 import { loadTasks } from '../storage.ts';
+import { detectPriorityFormat } from '../parser/parser.ts';
 import { AppContainer, Header, Footer, MainContent } from './components/Layout.tsx';
 import { TaskList } from './components/TaskList.tsx';
 import { PanelContainer } from './components/PanelContainer.tsx';
 import { CommandBar } from './components/CommandBar.tsx';
 import { HelpScreen } from './components/HelpScreen.tsx';
 import { SettingsScreen } from './components/SettingsScreen.tsx';
+import { FormatMismatchDialog } from './components/FormatMismatchDialog.tsx';
 import { useKeyboardNavigation } from './hooks/useKeyboard.ts';
 import { ThemeProvider } from './themes/ThemeContext.tsx';
 
@@ -37,6 +39,8 @@ function AppContent({ filePath }: AppProps) {
 
   const setPriorityMode = useTodoStore(state => state.setPriorityMode);
   const setTheme = useTodoStore(state => state.setTheme);
+  const showFormatMismatchDialog = useTodoStore(state => state.showFormatMismatchDialog);
+  const showFormatMismatch = useTodoStore(state => state.showFormatMismatch);
 
   // Setup keyboard navigation
   useKeyboardNavigation(filePath);
@@ -71,12 +75,24 @@ function AppContent({ filePath }: AppProps) {
         // Then load tasks
         const loadedTasks = await loadTasks(filePath);
         setTasks(loadedTasks);
+
+        // Check for priority format mismatch
+        const detectedFormat = detectPriorityFormat(loadedTasks);
+        if (detectedFormat !== 'none' && detectedFormat !== 'mixed') {
+          // File has priorities - check if they match settings
+          if (detectedFormat !== config.priorityMode) {
+            showFormatMismatch(detectedFormat);
+          }
+        } else if (detectedFormat === 'mixed') {
+          // Mixed format - always show dialog to let user choose
+          showFormatMismatch(detectedFormat);
+        }
       } catch (error) {
         console.error('Failed to load tasks:', error);
       }
     };
     loadData();
-  }, [filePath, setTasks, setPriorityMode, setTheme]);
+  }, [filePath, setTasks, setPriorityMode, setTheme, showFormatMismatch]);
 
   // Build title with filter
   const searchFilter = useTodoStore(state => state.searchFilter);
@@ -106,6 +122,11 @@ function AppContent({ filePath }: AppProps) {
   const shortcuts = `? Help | TAB Panels | ${priorityHint} Pri | n New | :w Save | :q Quit`;
 
   const status = `Panel: ${panelName} | Sort: ${sortMode} | ${shortcuts}`;
+
+  // Show format mismatch dialog if active
+  if (showFormatMismatchDialog) {
+    return <FormatMismatchDialog filePath={filePath} />;
+  }
 
   // Show settings screen if active
   if (showSettings) {

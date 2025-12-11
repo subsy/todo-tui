@@ -125,3 +125,63 @@ export function parseTodoFile(content: string): Task[] {
 export function serializeTodoFile(tasks: Task[]): string {
   return tasks.map(serializeTask).join('\n') + '\n';
 }
+
+/**
+ * Detect the priority format used in a list of tasks
+ * Returns 'letter' if any A-Z priorities found, 'number' if any 0-9 found,
+ * 'mixed' if both, or 'none' if no priorities
+ */
+export function detectPriorityFormat(tasks: Task[]): 'letter' | 'number' | 'mixed' | 'none' {
+  let hasLetter = false;
+  let hasNumber = false;
+
+  for (const task of tasks) {
+    if (task.priority) {
+      if (/^[A-Z]$/.test(task.priority)) {
+        hasLetter = true;
+      } else if (/^[0-9]$/.test(task.priority)) {
+        hasNumber = true;
+      }
+    }
+  }
+
+  if (hasLetter && hasNumber) return 'mixed';
+  if (hasLetter) return 'letter';
+  if (hasNumber) return 'number';
+  return 'none';
+}
+
+/**
+ * Convert all priorities in tasks from one format to another
+ * Letter to number: A=0, B=1, ..., I=8, J+=9
+ * Number to letter: 0=A, 1=B, ..., 9=J
+ */
+export function convertPriorities(tasks: Task[], targetFormat: 'letter' | 'number'): Task[] {
+  return tasks.map(task => {
+    if (!task.priority) return task;
+
+    let newPriority: string;
+
+    if (targetFormat === 'number') {
+      // Letter to number: A=0, B=1, ..., I=8, J+=9
+      if (/^[A-Z]$/.test(task.priority)) {
+        const letterIndex = task.priority.charCodeAt(0) - 'A'.charCodeAt(0);
+        newPriority = String(Math.min(letterIndex, 9));
+      } else {
+        // Already a number
+        newPriority = task.priority;
+      }
+    } else {
+      // Number to letter: 0=A, 1=B, ..., 9=J
+      if (/^[0-9]$/.test(task.priority)) {
+        const numIndex = parseInt(task.priority, 10);
+        newPriority = String.fromCharCode('A'.charCodeAt(0) + numIndex);
+      } else {
+        // Already a letter
+        newPriority = task.priority;
+      }
+    }
+
+    return { ...task, priority: newPriority };
+  });
+}

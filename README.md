@@ -155,6 +155,16 @@ theme = "catppuccin"
 - `onedark`
 - `monokai`
 
+### Priority Format Detection
+
+When opening a file, lazytodo detects the priority format used (letter A-Z or number 0-9). If it differs from your settings, you'll be prompted to:
+
+1. **Convert the file** - Transform all priorities to match your settings
+2. **Switch settings** - Adapt your settings to match the file format
+3. **Ignore** - Keep both formats as-is
+
+This ensures consistency and prevents confusion when working with files created with different priority modes.
+
 ### Todo File Location
 
 Priority order:
