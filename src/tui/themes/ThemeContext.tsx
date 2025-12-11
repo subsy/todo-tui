@@ -2,10 +2,15 @@ import React, { createContext, useContext } from 'react';
 import { themes, type Theme, catppuccin } from './index.ts';
 import { useTodoStore } from '../store/useTodoStore.ts';
 
-const ThemeContext = createContext<Theme>(catppuccin);
+// Default theme used when context is not available
+const defaultTheme = catppuccin;
+
+const ThemeContext = createContext<Theme>(defaultTheme);
 
 export function useTheme(): Theme {
-  return useContext(ThemeContext);
+  const theme = useContext(ThemeContext);
+  // Fallback to default theme if context value is somehow invalid
+  return theme ?? defaultTheme;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

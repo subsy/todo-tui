@@ -74,8 +74,9 @@ export function PriorityChart() {
     const rowTopDot = (row + 1) * dotsPerRow;
 
     return shownPriorities.map((priority, i) => {
-      const height = dotHeights[i]!;
-      const isSelected = isFocused && panelCursorIndex === i;
+      const height = dotHeights[i] ?? 0;
+      const safeIndex = Math.max(0, Math.min(panelCursorIndex, shownPriorities.length - 1));
+      const isSelected = isFocused && safeIndex === i;
 
       let char: string;
       if (height >= rowTopDot) {
@@ -95,8 +96,9 @@ export function PriorityChart() {
   });
 
   // Build label row data
+  const safeIndex = Math.max(0, Math.min(panelCursorIndex, shownPriorities.length - 1));
   const labelRow = shownPriorities.map((p, i) => {
-    const isSelected = isFocused && panelCursorIndex === i;
+    const isSelected = isFocused && safeIndex === i;
     return { char: p, isSelected, priority: p };
   });
 

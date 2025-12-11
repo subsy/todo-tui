@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useKeyboard as useOpenTUIKeyboard } from '@opentui/react';
+import { useKeyboard as useOpenTUIKeyboard, useAppContext } from '@opentui/react';
 import { useTodoStore, FocusedPanel } from '../store/useTodoStore.ts';
 import { saveTasks } from '../../storage.ts';
 
@@ -11,6 +11,7 @@ const ALL_LETTER_PRIORITIES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
 const ALL_NUMBER_PRIORITIES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
 export function useKeyboardNavigation(filePath?: string) {
+  const appContext = useAppContext();
   const {
     tasks,
     filteredTasks,
@@ -89,8 +90,9 @@ export function useKeyboardNavigation(filePath?: string) {
   const applyPanelFilter = useCallback(() => {
     if (focusedPanel === 'priorities') {
       const priorities = getShownPriorities();
-      if (panelCursorIndex < priorities.length) {
-        setActiveFilter({ type: 'priority', value: priorities[panelCursorIndex]! });
+      const priority = priorities[panelCursorIndex];
+      if (priority !== undefined) {
+        setActiveFilter({ type: 'priority', value: priority });
       }
     } else if (focusedPanel === 'stats') {
       if (panelCursorIndex === 0) {
@@ -108,8 +110,9 @@ export function useKeyboardNavigation(filePath?: string) {
         }
       }
       const projectsList = Array.from(allProjects).sort();
-      if (projectsCursorIndex < projectsList.length) {
-        setActiveFilter({ type: 'project', value: projectsList[projectsCursorIndex]! });
+      const project = projectsList[projectsCursorIndex];
+      if (project !== undefined) {
+        setActiveFilter({ type: 'project', value: project });
       }
     } else if (focusedPanel === 'contexts') {
       const allContexts = new Set<string>();
@@ -119,8 +122,9 @@ export function useKeyboardNavigation(filePath?: string) {
         }
       }
       const contextsList = Array.from(allContexts).sort();
-      if (contextsCursorIndex < contextsList.length) {
-        setActiveFilter({ type: 'context', value: contextsList[contextsCursorIndex]! });
+      const context = contextsList[contextsCursorIndex];
+      if (context !== undefined) {
+        setActiveFilter({ type: 'context', value: context });
       }
     }
 
@@ -150,8 +154,12 @@ export function useKeyboardNavigation(filePath?: string) {
       return;
     }
 
-    // Ctrl+C to quit
+    // Ctrl+C to quit - use renderer's cleanup if available, otherwise fallback to process.exit
     if (ctrl && keyName === 'c') {
+      // Attempt graceful shutdown through OpenTUI renderer
+      if (appContext?.renderer?.cleanup) {
+        appContext.renderer.cleanup();
+      }
       process.exit(0);
     }
 
@@ -177,8 +185,11 @@ export function useKeyboardNavigation(filePath?: string) {
     if (keyName === 'tab') {
       const currentIndex = PANELS.indexOf(focusedPanel);
       const nextIndex = (currentIndex + 1) % PANELS.length;
-      setFocusedPanel(PANELS[nextIndex]!);
-      setPanelCursorIndex(0);
+      const nextPanel = PANELS[nextIndex];
+      if (nextPanel !== undefined) {
+        setFocusedPanel(nextPanel);
+        setPanelCursorIndex(0);
+      }
       return;
     }
 
