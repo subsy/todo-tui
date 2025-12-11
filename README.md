@@ -2,7 +2,7 @@
 
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/subsy/lazytodo?utm_source=oss&utm_medium=github&utm_campaign=subsy%2Flazytodo&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-A fast, beautiful, vim-centric TUI for managing todo.txt files. Built with TypeScript and Bun.
+A fast, beautiful, vim-centric TUI for managing todo.txt files. Built with TypeScript, OpenTUI, and Bun.
 
 ## Features
 
